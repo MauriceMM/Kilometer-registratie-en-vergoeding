@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}Instellingen{% endblock %}
+
+{% block content %}
+<h1>Instellingen</h1>
+<p class="ondertitel">Configureer Ford API-koppeling en persoonlijke gegevens</p>
+
+{% if opgeslagen %}
+<div class="alert alert-succes mb-4">✓ Instellingen opgeslagen</div>
+{% endif %}
+
+<form method="post" action="/instellingen">
+  <div class="kaart-grid col2" style="gap:20px;align-items:start">
+
+    <!-- Ford API -->
+    <div class="kaart">
+      <h2>🚗 Ford API (FordPass)</h2>
+      <p class="text-sm text-grijs mb-4">Vul je FordPass-inloggegevens en VIN in voor automatische km-stand uitlezing.</p>
+
+      <div class="veld">
+        <label>FordPass gebruikersnaam (e-mail)</label>
+        <input type="email" name="ford_username" value="{{ instellingen.get('ford_username', '') }}" placeholder="jij@email.nl"/>
+      </div>
+      <div class="veld">
+        <label>FordPass wachtwoord</label>
+        <input type="password" name="ford_password" placeholder="Laat leeg om ongewijzigd te laten"/>
+        <div class="text-sm text-grijs" style="margin-top:4px">Wachtwoord wordt opgeslagen in de database op je eigen server.</div>
+      </div>
+      <div class="veld">
+        <label>VIN (voertuigidentificatienummer)</label>
+        <input type="text" name="ford_vin" value="{{ instellingen.get('ford_vin', '') }}" placeholder="WF0XXXXXXXXXXXXX" maxlength="17" style="text-transform:uppercase"/>
+        <div class="text-sm text-grijs" style="margin-top:4px">Te vinden op het kentekenbewijs (deel 1B, veld E).</div>
+      </div>
+
+      <button type="button" id="test-ford-btn" class="btn btn-grijs w-full" onclick="testFordVerbinding()">
+        🔌 Test Ford API verbinding
+      </button>
+      <div id="ford-test-resultaat" class="text-sm" style="margin-top:8px;display:none"></div>
+    </div>
+
+    <!-- Persoonlijk & app -->
+    <div style="display:flex;flex-direction:column;gap:20px">
+      <div class="kaart">
+        <h2>👤 Persoonlijke gegevens</h2>
+        <p class="text-sm text-grijs mb-4">Wordt gebruikt op de Excel-export voor SuccessFactors.</p>
+
+        <div class="veld">
+          <label>Naam werknemer</label>
+          <input type="text" name="werknemer_naam" value="{{ instellingen.get('werknemer_naam', 'Maurice Melotto') }}"/>
+        </div>
+        <div class="veld">
+          <label>Personeelsnummer (optioneel)</label>
+          <input type="text" name="werknemer_nummer" value="{{ instellingen.get('werknemer_nummer', '') }}" placeholder="bv. 12345"/>
+        </div>
+        <div class="veld">
+          <label>Tarief per km (€)</label>
+          <input type="number" name="tarief_per_km" value="{{ instellingen.get('tarief_per_km', '0.23') }}" step="0.01" min="0" max="1"/>
+          <div class="text-sm text-grijs" style="margin-top:4px">Belastingdienst 2025: € 0,23/km voor zakelijk verkeer.</div>
+        </div>
+      </div>
+
+      <div class="kaart">
+        <h2>🔒 App-beveiliging</h2>
+        <div class="veld">
+          <label>Nieuw app-wachtwoord</label>
+          <input type="password" name="app_password" placeholder="Laat leeg om ongewijzigd te laten"/>
+          <div class="text-sm text-grijs" style="margin-top:4px">Dit is het wachtwoord voor de inlogpagina van de app.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="mt-6">
+    <button type="submit" class="btn btn-primair btn-lg">✓ Instellingen opslaan</button>
+  </div>
+</form>
+
+<div class="kaart mt-6">
+  <h2>📋 SAP SuccessFactors — snelle link</h2>
+  <p class="text-sm text-grijs mb-4">Klik hier om direct naar het juiste scherm in SuccessFactors te gaan:</p>
+  <a href="https://performancemanager5.successfactors.eu/sf/home" target="_blank" class="btn btn-primair">
+    🔗 Open SAP SuccessFactors
+  </a>
+  <p class="text-sm text-grijs mt-4">
+    Navigeer daarna naar: <strong>View my profile → Employment Information → Commuter Traffic → potlood bij Home/Office Kilometer Info</strong>
+  </p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function testFordVerbinding() {
+  const btn = document.getElementById('test-ford-btn');
+  const resultaat = document.getElementById('ford-test-resultaat');
+  btn.textContent = '⏳ Verbinding testen...';
+  btn.disabled = true;
+  resultaat.style.display = 'none';
+  try {
+    const resp = await fetch('/api/ford/odometer');
+    if (resp.ok) {
+      const data = await resp.json();
+      resultaat.innerHTML = `<span style="color:#065f46">✓ Verbinding gelukt! Huidige km-stand: <strong>${data.km_stand.toLocaleString('nl-NL')} km</strong></span>`;
+    } else {
+      const err = await resp.json();
+      resultaat.innerHTML = `<span style="color:#dc2626">✗ Fout: ${err.detail}</span>`;
+    }
+  } catch(e) {
+    resultaat.innerHTML = `<span style="color:#dc2626">✗ Verbindingsfout: ${e.message}</span>`;
+  } finally {
+    btn.textContent = '🔌 Test Ford API verbinding';
+    btn.disabled = false;
+    resultaat.style.display = 'block';
+  }
+}
+</script>
+{% endblock %}

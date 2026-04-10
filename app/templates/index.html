@@ -1,0 +1,366 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+  <div>
+    <h1>Dashboard</h1>
+    <p class="ondertitel">{{ huidige_maand }} {{ huidig_jaar }}</p>
+  </div>
+  <button class="btn btn-primair btn-lg" onclick="document.getElementById('nieuw-rit-modal').style.display='flex'">
+    + Rit registreren
+  </button>
+</div>
+
+{% if actieve_rit %}
+<div class="actieve-rit-banner">
+  <div class="puls"></div>
+  <div style="flex:1">
+    <strong>Rit actief</strong> — gestart om {{ actieve_rit.start_tijd.strftime('%H:%M') if actieve_rit.start_tijd }}
+    {% if actieve_rit.start_km %} · begin: {{ actieve_rit.start_km|int }} km{% endif %}
+    {% if actieve_rit.start_locatie %} · {{ actieve_rit.start_locatie }}{% endif %}
+  </div>
+  <button class="btn btn-gevaar" onclick="document.getElementById('stop-rit-modal').style.display='flex'">
+    ⏹ Rit stoppen
+  </button>
+</div>
+{% endif %}
+
+<!-- Statistieken -->
+<div class="kaart-grid col4 mb-6">
+  <div class="stat">
+    <div class="label">Zakelijke km ({{ huidige_maand }})</div>
+    <div class="waarde">{{ km_deze_maand }} km</div>
+    <div class="sub">{{ aantal_ritten_maand }} ritten</div>
+  </div>
+  <div class="stat">
+    <div class="label">Vergoeding ({{ huidige_maand }})</div>
+    <div class="waarde">€ {{ "%.2f"|format(vergoeding_deze_maand) }}</div>
+    <div class="sub">à € 0,23/km</div>
+  </div>
+  <div class="stat">
+    <div class="label">Declaratie deadline</div>
+    <div class="waarde" style="font-size:18px;padding-top:6px;">Einde maand</div>
+    <div class="sub">SAP SuccessFactors</div>
+  </div>
+  <div class="stat">
+    <div class="label">Export</div>
+    <div class="waarde" style="font-size:18px;padding-top:4px;">
+      <a href="/overzicht?jaar={{ huidig_jaar }}&maand={{ huidig_maand_nr }}" class="btn btn-grijs" style="font-size:13px;padding:6px 12px;">
+        📊 Overzicht
+      </a>
+    </div>
+    <div class="sub">
+      <a href="/api/export/excel/{{ huidig_jaar }}/{{ huidig_maand_nr }}" style="color:#1a56db;font-size:13px;">⬇ Excel downloaden</a>
+    </div>
+  </div>
+</div>
+
+<!-- Recente ritten -->
+<div class="kaart">
+  <div class="flex items-center justify-between mb-4">
+    <h2 style="margin:0">Recente ritten</h2>
+    <a href="/overzicht" class="btn btn-grijs" style="font-size:13px;padding:6px 14px;">Alle ritten →</a>
+  </div>
+
+  {% if recente_ritten %}
+  <table>
+    <thead>
+      <tr>
+        <th>Datum</th>
+        <th>Type</th>
+        <th>Van → Naar</th>
+        <th>Omschrijving</th>
+        <th>Afstand</th>
+        <th>Vergoeding</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for rit in recente_ritten %}
+      <tr>
+        <td>{{ rit.datum.strftime('%d-%m') if rit.datum }}</td>
+        <td><span class="badge badge-{{ rit.type.value }}">{{ rit.type.value }}</span></td>
+        <td class="text-sm text-grijs">
+          {{ rit.start_locatie or '—' }} → {{ rit.eind_locatie or '—' }}
+        </td>
+        <td class="text-sm">{{ rit.omschrijving or rit.klant or '—' }}</td>
+        <td>
+          {% if rit.afstand_km %}{{ rit.afstand_km|int }} km{% else %}
+            {% if rit.status.value == 'actief' %}<span class="badge badge-actief">actief</span>{% else %}—{% endif %}
+          {% endif %}
+        </td>
+        <td>{% if rit.vergoeding_eur %}€ {{ "%.2f"|format(rit.vergoeding_eur) }}{% else %}—{% endif %}</td>
+        <td>
+          <button onclick="verwijderRit({{ rit.id }})" class="btn btn-grijs" style="padding:4px 10px;font-size:12px;">🗑</button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="alert alert-info">Nog geen ritten geregistreerd. Klik op "Rit registreren" om te beginnen.</div>
+  {% endif %}
+</div>
+
+<!-- ══════════════════════════════════════════
+     MODAL: Nieuwe rit
+══════════════════════════════════════════ -->
+<div id="nieuw-rit-modal" class="modal-overlay" style="display:none" x-data="ritForm()">
+  <div class="modal">
+    <div class="flex items-center justify-between mb-4">
+      <h3>Rit registreren</h3>
+      <button onclick="document.getElementById('nieuw-rit-modal').style.display='none'" class="btn btn-grijs" style="padding:4px 10px">✕</button>
+    </div>
+
+    <!-- Type selector -->
+    <div class="kaart-grid col2 mb-4" style="gap:8px">
+      <button type="button" @click="type='zakelijk'"
+        :class="type==='zakelijk' ? 'btn btn-primair w-full' : 'btn btn-grijs w-full'">
+        💼 Zakelijk
+      </button>
+      <button type="button" @click="type='prive'"
+        :class="type==='prive' ? 'btn btn-grijs w-full' : 'btn btn-grijs w-full'" style="opacity:0.7">
+        🏠 Privé
+      </button>
+    </div>
+
+    <!-- Modus -->
+    <div class="kaart-grid col2 mb-4" style="gap:8px">
+      <button type="button" @click="modus='start'"
+        :class="modus==='start' ? 'btn btn-succes w-full' : 'btn btn-grijs w-full'">
+        ▶ Start rit
+      </button>
+      <button type="button" @click="modus='handmatig'"
+        :class="modus==='handmatig' ? 'btn btn-primair w-full' : 'btn btn-grijs w-full'">
+        ✏ Handmatig
+      </button>
+    </div>
+
+    <template x-if="modus==='start'">
+      <div>
+        <div class="veld">
+          <label>Beginstand (km) <span class="text-sm text-grijs">— of haal op via Ford</span></label>
+          <div class="flex gap" style="gap:8px">
+            <input type="number" x-model="start_km" placeholder="bv. 42500" step="0.1" style="flex:1"/>
+            <button type="button" @click="haalFordKm('start')" class="btn btn-grijs" :disabled="fordLaden">
+              <span x-text="fordLaden ? '⏳' : '🚗 Ford'"></span>
+            </button>
+          </div>
+          <div class="text-sm text-grijs" x-show="fordFout" x-text="fordFout" style="margin-top:4px;color:#dc2626"></div>
+        </div>
+        <div class="veld">
+          <label>Vertreklocatie</label>
+          <input type="text" x-model="start_locatie" placeholder="bv. Thuis / Eindhoven"/>
+        </div>
+        <div class="veld" x-show="type==='zakelijk'">
+          <label>Klant / Omschrijving</label>
+          <input type="text" x-model="omschrijving" placeholder="bv. CTAC Rosmalen / klantbezoek"/>
+        </div>
+        <button type="button" @click="startRit()" class="btn btn-succes w-full btn-lg" :disabled="!start_km">
+          ▶ Start rit
+        </button>
+      </div>
+    </template>
+
+    <template x-if="modus==='handmatig'">
+      <div>
+        <div class="kaart-grid col2" style="gap:8px">
+          <div class="veld">
+            <label>Beginstand (km)</label>
+            <div class="flex" style="gap:6px">
+              <input type="number" x-model="start_km" placeholder="42500" step="0.1" style="flex:1"/>
+              <button type="button" @click="haalFordKm('start')" class="btn btn-grijs" :disabled="fordLaden" style="padding:8px 10px">🚗</button>
+            </div>
+          </div>
+          <div class="veld">
+            <label>Eindstand (km)</label>
+            <div class="flex" style="gap:6px">
+              <input type="number" x-model="eind_km" placeholder="42550" step="0.1" style="flex:1"/>
+              <button type="button" @click="haalFordKm('eind')" class="btn btn-grijs" :disabled="fordLaden" style="padding:8px 10px">🚗</button>
+            </div>
+          </div>
+        </div>
+        <div x-show="start_km && eind_km && eind_km > start_km" class="alert alert-succes mb-4">
+          Afstand: <strong x-text="(eind_km - start_km).toFixed(1) + ' km'"></strong>
+          <span x-show="type==='zakelijk'"> · Vergoeding: <strong x-text="'€ ' + ((eind_km - start_km) * 0.23).toFixed(2)"></strong></span>
+        </div>
+        <div class="kaart-grid col2" style="gap:8px">
+          <div class="veld">
+            <label>Van</label>
+            <input type="text" x-model="start_locatie" placeholder="Thuis"/>
+          </div>
+          <div class="veld">
+            <label>Naar</label>
+            <input type="text" x-model="eind_locatie" placeholder="Klant / Office"/>
+          </div>
+        </div>
+        <div class="veld" x-show="type==='zakelijk'">
+          <label>Klant / Omschrijving</label>
+          <input type="text" x-model="omschrijving" placeholder="bv. CTAC Rosmalen"/>
+        </div>
+        <div class="veld">
+          <label>Datum (optioneel)</label>
+          <input type="date" x-model="datum"/>
+        </div>
+        <button type="button" @click="slaHandmatigOp()" class="btn btn-primair w-full btn-lg" :disabled="!start_km || !eind_km">
+          ✓ Opslaan
+        </button>
+      </div>
+    </template>
+
+    <div class="text-sm text-grijs" x-show="melding" x-text="melding" style="margin-top:12px;text-align:center"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     MODAL: Rit stoppen
+══════════════════════════════════════════ -->
+{% if actieve_rit %}
+<div id="stop-rit-modal" class="modal-overlay" style="display:none" x-data="stopForm({{ actieve_rit.id }})">
+  <div class="modal">
+    <div class="flex items-center justify-between mb-4">
+      <h3>Rit afsluiten</h3>
+      <button onclick="document.getElementById('stop-rit-modal').style.display='none'" class="btn btn-grijs" style="padding:4px 10px">✕</button>
+    </div>
+    <div class="alert alert-info mb-4">
+      Gestart om {{ actieve_rit.start_tijd.strftime('%H:%M') if actieve_rit.start_tijd }}
+      {% if actieve_rit.start_km %} · Beginstand: {{ actieve_rit.start_km|int }} km{% endif %}
+    </div>
+    <div class="veld">
+      <label>Eindstand (km)</label>
+      <div class="flex" style="gap:8px">
+        <input type="number" x-model="eind_km" placeholder="bv. 42560" step="0.1" style="flex:1" autofocus/>
+        <button type="button" @click="haalFordKm()" class="btn btn-grijs" :disabled="laden">
+          <span x-text="laden ? '⏳' : '🚗 Ford'"></span>
+        </button>
+      </div>
+    </div>
+    <div class="veld">
+      <label>Aankomstlocatie</label>
+      <input type="text" x-model="eind_locatie" placeholder="bv. Thuis / CTAC Rosmalen"/>
+    </div>
+    <div x-show="eind_km && {{ actieve_rit.start_km or 0 }} > 0" class="alert alert-succes mb-4">
+      Afstand: <strong x-text="(eind_km - {{ actieve_rit.start_km or 0 }}).toFixed(1) + ' km'"></strong>
+    </div>
+    <button type="button" @click="stopRit()" class="btn btn-gevaar w-full btn-lg" :disabled="!eind_km">
+      ⏹ Rit afsluiten
+    </button>
+    <div class="text-sm text-grijs" x-show="melding" x-text="melding" style="margin-top:12px;text-align:center"></div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function ritForm() {
+  return {
+    type: 'zakelijk',
+    modus: 'handmatig',
+    start_km: '',
+    eind_km: '',
+    start_locatie: '',
+    eind_locatie: '',
+    omschrijving: '',
+    datum: '',
+    fordLaden: false,
+    fordFout: '',
+    melding: '',
+
+    async haalFordKm(doel) {
+      this.fordLaden = true;
+      this.fordFout = '';
+      try {
+        const resp = await fetch('/api/ford/odometer');
+        if (!resp.ok) throw new Error((await resp.json()).detail || 'Ford API fout');
+        const data = await resp.json();
+        if (doel === 'start') this.start_km = data.km_stand;
+        else this.eind_km = data.km_stand;
+      } catch(e) {
+        this.fordFout = '⚠ ' + e.message;
+      } finally {
+        this.fordLaden = false;
+      }
+    },
+
+    async startRit() {
+      const resp = await fetch('/api/trips', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          type: this.type,
+          start_locatie: this.start_locatie,
+          omschrijving: this.omschrijving,
+          tarief_per_km: 0.23,
+        }),
+      });
+      if (!resp.ok) { this.melding = 'Fout bij aanmaken rit'; return; }
+      const rit = await resp.json();
+      if (this.start_km) {
+        await fetch(`/api/trips/${rit.id}/start-km?km=${this.start_km}`, { method: 'PATCH' });
+      }
+      location.reload();
+    },
+
+    async slaHandmatigOp() {
+      const body = {
+        type: this.type,
+        start_km: parseFloat(this.start_km),
+        eind_km: parseFloat(this.eind_km),
+        start_locatie: this.start_locatie,
+        eind_locatie: this.eind_locatie,
+        omschrijving: this.omschrijving,
+        tarief_per_km: 0.23,
+      };
+      if (this.datum) body.datum = this.datum + 'T12:00:00';
+      const resp = await fetch('/api/trips/handmatig', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body),
+      });
+      if (!resp.ok) { this.melding = 'Fout bij opslaan'; return; }
+      location.reload();
+    },
+  };
+}
+
+function stopForm(ritId) {
+  return {
+    eind_km: '',
+    eind_locatie: '',
+    laden: false,
+    melding: '',
+
+    async haalFordKm() {
+      this.laden = true;
+      try {
+        const resp = await fetch('/api/ford/odometer');
+        if (!resp.ok) throw new Error((await resp.json()).detail);
+        const data = await resp.json();
+        this.eind_km = data.km_stand;
+      } catch(e) {
+        this.melding = '⚠ ' + e.message;
+      } finally {
+        this.laden = false;
+      }
+    },
+
+    async stopRit() {
+      const params = new URLSearchParams({ eind_km: this.eind_km });
+      if (this.eind_locatie) params.append('eind_locatie', this.eind_locatie);
+      const resp = await fetch(`/api/trips/${ritId}/stop?${params}`, { method: 'PATCH' });
+      if (!resp.ok) { this.melding = 'Fout bij afsluiten rit'; return; }
+      location.reload();
+    },
+  };
+}
+
+async function verwijderRit(id) {
+  if (!confirm('Rit verwijderen?')) return;
+  await fetch('/api/trips/' + id, { method: 'DELETE' });
+  location.reload();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Inloggen — Kilometervergoeding</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #1e429f 0%, #1a56db 100%);
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    }
+    .kaart {
+      background: white; border-radius: 20px; padding: 40px;
+      width: 100%; max-width: 400px; box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    }
+    .logo { text-align: center; margin-bottom: 28px; }
+    .logo .icoon { font-size: 48px; }
+    .logo h1 { font-size: 24px; font-weight: 700; color: #1e429f; margin-top: 8px; }
+    .logo p { font-size: 14px; color: #6b7280; margin-top: 4px; }
+    label { display: block; font-size: 13px; font-weight: 500; color: #374151; margin-bottom: 6px; }
+    input[type=password] {
+      width: 100%; padding: 11px 14px; border: 1px solid #e5e7eb;
+      border-radius: 8px; font-size: 15px; color: #111827;
+      transition: border-color 0.15s;
+    }
+    input[type=password]:focus { outline: none; border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,0.15); }
+    .fout { background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; padding: 10px 14px; border-radius: 8px; font-size: 14px; margin-bottom: 16px; }
+    button {
+      width: 100%; padding: 12px; background: #1a56db; color: white;
+      border: none; border-radius: 8px; font-size: 15px; font-weight: 600;
+      cursor: pointer; margin-top: 16px; transition: background 0.15s;
+    }
+    button:hover { background: #1e429f; }
+    .voetnoot { text-align: center; margin-top: 20px; font-size: 13px; color: #9ca3af; }
+  </style>
+</head>
+<body>
+<div class="kaart">
+  <div class="logo">
+    <div class="icoon">🚗</div>
+    <h1>Kilometervergoeding</h1>
+    <p>kmv.melotto.nl</p>
+  </div>
+
+  {% if fout %}
+  <div class="fout">⚠️ {{ fout }}</div>
+  {% endif %}
+
+  <form method="post" action="/login">
+    <label for="password">Wachtwoord</label>
+    <input type="password" id="password" name="password" autofocus placeholder="••••••••" required/>
+    <button type="submit">Inloggen →</button>
+  </form>
+  <div class="voetnoot">Beveiligde verbinding via HTTPS</div>
+</div>
+</body>
+</html>
