@@ -87,8 +87,9 @@ app = FastAPI(
     title="Kilometervergoeding",
     description="Ritregistratie + SAP SuccessFactors export voor bruto leasevergoeding",
     version="1.0.0",
-    docs_url=None,   # Schakel Swagger UI uit in productie
+    docs_url=None,
     redoc_url=None,
+    lifespan=lifespan,
 )
 
 # Middleware
