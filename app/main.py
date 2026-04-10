@@ -97,7 +97,9 @@ app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])  # Nginx regelt T
 # Templates & static files
 BASE_DIR = os.path.dirname(__file__)
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
-app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "..", "static")), name="static")
+_static_dir = os.path.join(BASE_DIR, "..", "static")
+os.makedirs(_static_dir, exist_ok=True)
+app.mount("/static", StaticFiles(directory=_static_dir), name="static")
 
 # Routers
 app.include_router(trips.router)
